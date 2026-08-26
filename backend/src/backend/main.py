@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 app = FastAPI(title="FastAPI Backend")
 
@@ -12,9 +13,54 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/api/message")
-def read_message():
-    return {
-        "status": "connected",
-        "message": "Hello from FastAPI!"
-    }
+class Student(BaseModel):
+    id: int
+    name: str
+    score: int
+
+students = [
+    Student(id=1, name="John Doe", score=20),
+    Student(id=2, name="Jim Hanh", score=40),
+    Student(id=3, name="Jack Gobert", score=55),
+]
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+@app.get("/students", response_model=list[Student])
+async def show_students():
+    return students
+
+@app.get("/students/sum")
+async def show_sum():
+    return {"scores": sum(student.score for student in students)}
+
+@app.get("/students/{sid}", response_model=Student)
+async def show_student(sid: int):
+    student = next((student for student in students if student.id == sid), None)
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    return student
+
+
+@app.post("/students", response_model=Student, status_code=status.HTTP_201_CREATED)
+async def add_student(student: Student):
+    if any(existing.id == student.id for existing in students):
+        raise HTTPException(status_code=409, detail="Student ID already exists")
+
+    students.append(student)
+    return student
+
+
+@app.delete("/students/{sid}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_student(sid: int):
+    student_index = next(
+        (index for index, student in enumerate(students) if student.id == sid),
+        None,
+    )
+    if student_index is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    students.pop(student_index)
