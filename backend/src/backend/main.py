@@ -18,7 +18,7 @@ class Student(BaseModel):
     name: str
     score: int
 
-students = [
+students: list[Student] = [
     Student(id=1, name="John Doe", score=20),
     Student(id=2, name="Jim Hanh", score=40),
     Student(id=3, name="Jack Gobert", score=55),
@@ -44,13 +44,27 @@ async def show_student(sid: int):
 
     return student
 
-
 @app.post("/students", response_model=Student, status_code=status.HTTP_201_CREATED)
 async def add_student(student: Student):
     if any(existing.id == student.id for existing in students):
         raise HTTPException(status_code=409, detail="Student ID already exists")
 
     students.append(student)
+    return student
+
+@app.put("/students/{sid}", response_model=Student)
+async def update_student(sid: int, student: Student):
+    if student.id != sid:
+        raise HTTPException(status_code=400, detail="Student ID cannot be changed")
+
+    student_index = next(
+        (index for index, existing in enumerate(students) if existing.id == sid),
+        None,
+    )
+    if student_index is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    students[student_index] = student
     return student
 
 
